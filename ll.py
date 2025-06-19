@@ -71,8 +71,16 @@ def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: s
         assert result == expected, f"{test_str}"
     
     if expected and PRODUCE_PROOFS:
-        proof_data += ("\\section*{" + test_str[:test_str.index(":")+1].replace(" failed", "") + "}\n" +
+
+        status_text = "Sequente derivável"
+        formula_left = lift_formula_to_latex_string(sequent[0])
+        formula_right = lift_formula_to_latex_string(sequent[1])
+
+        proof_data += ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
+                      f"\\text{{{status_text}}}\n" +
+                      "\\hfill\n\\break\n"*2+ 
             lift_object_to_bussproofs(derive_proof(sequent)) + "\\hfill\n\\break\n"*2)
+        
     else:
         formula_left = lift_formula_to_latex_string(sequent[0])
         formula_right = lift_formula_to_latex_string(sequent[1])
@@ -81,12 +89,13 @@ def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: s
             status_text = "Derivable (proof generation disabled)"
         else:
             # This case happens when expected is False
-            status_text = "Not derivable"
+            status_text = "Sequente não derivável"
         
-        proof_data += (f"\\section*{{{test_str[:test_str.index(':')+1].replace(' failed', '')}}}\n" +
-                      f"${formula_left} \\implies {formula_right}$ \\\\\n" +
-                      f"\\textit{{{status_text}}}\n" +
+        proof_data += ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " +f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
+                      f"\\text{{{status_text}}}\n" +
                       "\\hfill\n\\break\n"*2)
+                      
+                    
 
 def derive_proof(sequent: Tuple[Formula, Formula]) -> Optional[ProofNode]:
     alpha, beta = sequent
@@ -156,7 +165,7 @@ def lift_proof_to_bussproofs(proof: ProofNode) -> str:
         alpha_latex = lift_formula_to_latex_string(proof.sequent[0])
         beta_latex = lift_formula_to_latex_string(proof.sequent[1])
 
-        return f"\\AxiomC{{}}\n\\RightLabel{{$A$}}\n\\UnaryInfC{{${alpha_latex} \\implies {beta_latex}$}}"
+        return f"\\AxiomC{{}}\n\\RightLabel{{$A$}}\n\\UnaryInfC{{${alpha_latex} \\Rightarrow {beta_latex}$}}"
     
     premises_latex = []
     for premise in proof.premises:
@@ -176,9 +185,9 @@ def lift_proof_to_bussproofs(proof: ProofNode) -> str:
         raise ValueError(f"Unknown rule: {proof.rule}")
     
     if len(proof.premises) == 1:
-        return f"{premises_latex[0]}\n{rulestr}\n\\UnaryInfC{{${alpha_latex} \\implies {beta_latex}$}}"
+        return f"{premises_latex[0]}\n{rulestr}\n\\UnaryInfC{{${alpha_latex} \\Rightarrow {beta_latex}$}}"
     elif len(proof.premises) == 2:
-        return f"{premises_latex[0]}\n{premises_latex[1]}\n{rulestr}\n\\BinaryInfC{{${alpha_latex} \\implies {beta_latex}$}}"
+        return f"{premises_latex[0]}\n{premises_latex[1]}\n{rulestr}\n\\BinaryInfC{{${alpha_latex} \\Rightarrow  {beta_latex}$}}"
     else:
         raise ValueError("More than 2 premises in a proof node, which is not supported in monosequents.")
 

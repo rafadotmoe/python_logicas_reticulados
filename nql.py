@@ -161,8 +161,16 @@ def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: s
         assert result == expected, f"{test_str}"
     
     if expected and PRODUCE_PROOFS:
-        proof_data += ("\\section*{" + test_str[:test_str.index(":")+1].replace(" failed", "") + "}\n" +
+
+        status_text = "Sequente derivável"
+        formula_left = lift_formula_to_latex_string(sequent[0])
+        formula_right = lift_formula_to_latex_string(sequent[1])
+
+        proof_data += ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
+                      f"\\text{{{status_text}}}\n" +
+                      "\\hfill\n\\break\n"*2+ 
             lift_object_to_bussproofs(derive_proof(sequent)) + "\\hfill\n\\break\n"*2)
+
     else:
         formula_left = lift_formula_to_latex_string(sequent[0])
         formula_right = lift_formula_to_latex_string(sequent[1])
@@ -171,12 +179,12 @@ def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: s
             status_text = "Derivable (proof generation disabled)"
         else:
             # This case happens when expected is False
-            status_text = "Not derivable"
+            status_text = "Sequente não derivável"
         
-        proof_data += (f"\\section*{{{test_str[:test_str.index(':')+1].replace(' failed', '')}}}\n" +
-                      f"${formula_left} \\implies {formula_right}$ \\\\\n" +
-                      f"\\textit{{{status_text}}}\n" +
+        proof_data += ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " +f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
+                      f"\\text{{{status_text}}}\n" +
                       "\\hfill\n\\break\n"*2)
+
 
 cache = {}
 weaks = []
@@ -678,6 +686,10 @@ if __name__ == "__main__":
     assertion_print("\n=== RUNNING NEW LOGIC TESTS ===")
     
     assertion_print("\n=== BASIC AXIOM TESTS ===")
+
+    # Test failed
+    test_derivable((p, not_formula(top())), False, "Test 0: p ⟹  ~⊤")
+
     # Test 1: Identity
     test_derivable((p, p), True, "Test 1: p ⟹  p")
     # Test 2: Bot elimination
@@ -776,6 +788,7 @@ if __name__ == "__main__":
     test_derivable((not_not_p_and_not_q, pq_or), True, "Test 24: ~(~p ∧ ~q) ⟹  p ∨ q")
     assertion_print("Passed!")
 
+
     assertion_print("\n=== ORIGINAL TESTS (should still work) ===")
     # Original conjunction tests
     test_derivable((pq, p), True, "Original Test: p ∧ q ⟹  p")
@@ -787,6 +800,8 @@ if __name__ == "__main__":
     test_derivable((q, pq_or), True, "Original Test: q ⟹  p ∨ q")
     test_derivable((pq_or, pq_or), True, "Original Test: p ∨ q ⟹  p ∨ q")
     assertion_print("Passed!")
+
+
 
     if PRODUCE_PROOFS:
         with open("proofs_nql.tex", "w") as f:
