@@ -1,13 +1,6 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, List, Optional
 from enum import Enum
-import subprocess
-
-PRODUCE_PROOFS = True
-PERFORM_ASSERTION = True
-PRINT_MARKERS = False
-
-proof_data = ""
 
 class ConnectiveType(Enum):
     AND = "∧"
@@ -94,41 +87,36 @@ def get_neg_disjuncts(formula: Formula) -> Tuple[Formula, Formula]:
     assert is_neg_disjunction(formula)
     return not_formula(get_disjuncts(formula.operand)[0]), not_formula(get_disjuncts(formula.operand)[1])
 
-def assertion_print(msg: str):
-    if PERFORM_ASSERTION and PRINT_MARKERS:
-        print(msg)
-
-def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: str):
+def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: str, assertion: bool, proofs: bool):
     global proof_data
     
-    if PERFORM_ASSERTION:
+    if assertion:
         result = is_derivable(sequent)
         assert result == expected, f"{test_str}"
     
-    if expected and PRODUCE_PROOFS:
+    if expected and proofs:
 
         status_text = "Sequente derivável"
         formula_left = lift_formula_to_latex_string(sequent[0])
         formula_right = lift_formula_to_latex_string(sequent[1])
 
-        proof_data += ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
+        return ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
                       f"\\text{{{status_text}}}\n" +
                       "\\hfill\n\\break\n"*2+ 
             lift_object_to_bussproofs(derive_proof(sequent)) + "\\hfill\n\\break\n"*2)
 
+    formula_left = lift_formula_to_latex_string(sequent[0])
+    formula_right = lift_formula_to_latex_string(sequent[1])
+    if expected:
+        # This case happens when expected is True but PRODUCE_PROOFS is False
+        status_text = "Derivable (proof generation disabled)"
     else:
-        formula_left = lift_formula_to_latex_string(sequent[0])
-        formula_right = lift_formula_to_latex_string(sequent[1])
-        if expected:
-            # This case happens when expected is True but PRODUCE_PROOFS is False
-            status_text = "Derivable (proof generation disabled)"
-        else:
-            # This case happens when expected is False
-            status_text = "Sequente não derivável"
-        
-        proof_data += ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " +f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
-                      f"\\text{{{status_text}}}\n" +
-                      "\\hfill\n\\break\n"*2)
+        # This case happens when expected is False
+        status_text = "Sequente não derivável"
+    
+    return ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " +f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
+                    f"\\text{{{status_text}}}\n" +
+                    "\\hfill\n\\break\n"*2)
 
 
 def derive_proof(sequent: Tuple[Formula, Formula]) -> Optional[ProofNode]:
@@ -323,181 +311,4 @@ def or_formula(left: Formula, right: Formula) -> BinaryCompound:
 
 def not_formula(operand: Formula) -> UnaryCompound:
     return UnaryCompound(ConnectiveType.NOT, operand)
-
-# Test cases
-if __name__ == "__main__":
-    p = atom("p")
-    q = atom("q")
-    r = atom("r")
-    s = atom("s")
-
-    assertion_print("\n=== RUNNING ORIGINAL TESTS ===")
-    
-    assertion_print("\n=== ATOM TESTS ===")
-    # Test 1: Identity
-    test_derivable((p, p), True, "Test 1 failed: p ⟹  p")
-    # Test 2: Different atoms
-    test_derivable((p, q), False, "Test 2 failed: p ⟹  q should be False")
-    assertion_print("Passed!")
-    
-    assertion_print("\n=== CONJUNCTION TESTS ===")
-    # Test 3: Conjunction elimination (∧L1)
-    pq = and_formula(p, q)
-    test_derivable((pq, p), True, "Test 3 failed: p ∧ q ⟹  p")
-    # Test 4: Conjunction elimination (∧L2)
-    test_derivable((pq, q), True, "Test 4 failed: p ∧ q ⟹  q")
-    # Test 5: Conjunction introduction (∧R)
-    test_derivable((p, and_formula(p, p)), True, "Test 5 failed: p ⟹  p ∧ p")
-    # Test 6: Invalid conjunction introduction
-    test_derivable((p, pq), False, "Test 6 failed: p ⟹  p ∧ q should be False")
-    # Test 7: Conjunction commutativity
-    qp = and_formula(q, p)
-    test_derivable((pq, qp), True, "Test 7 failed: p ∧ q ⟹  q ∧ p")
-    assertion_print("Passed!")
-    
-    assertion_print("\n=== DISJUNCTION TESTS ===")
-    pq_or = or_formula(p, q)
-    # Test 8: Disjunction introduction (∨R1)
-    test_derivable((p, pq_or), True, "Test 8 failed: p ⟹  p ∨ q")
-    # Test 9: Disjunction introduction (∨R2)
-    test_derivable((q, pq_or), True, "Test 9 failed: q ⟹  p ∨ q")
-    # Test 10: Disjunction elimination (∨L) - both cases must lead to conclusion
-    test_derivable((pq_or, pq_or), True, "Test 10 failed: p ∨ q ⟹  p ∨ q")
-    # Test 11: Invalid disjunction elimination
-    test_derivable((pq_or, p), False, "Test 11 failed: p ∨ q ⟹  p should be False")
-    # Test 12: Disjunction commutativity
-    qp_or = or_formula(q, p)
-    test_derivable((pq_or, qp_or), True, "Test 12 failed: p ∨ q ⟹  q ∨ p")
-    assertion_print("Passed!")
-    
-    assertion_print("\n=== COMPLEX TESTS ===")
-    # Test 13: Distributivity: p ∧ (q ∨ r) ⟹  (p ∧ q) ∨ (p ∧ r)
-    qr_or = or_formula(q, r)
-    qr_and = and_formula(q, r)
-    p_and_qr_or = and_formula(p, qr_or)
-    p_or_qr_and = or_formula(p, qr_and)
-    pq_and = and_formula(p, q)
-    pq_or = or_formula(p, q)
-    pr_and = and_formula(p, r)
-    pr_or = or_formula(p, r)
-    pq_or_pr = or_formula(pq_and, pr_and)
-    pq_and_pr = and_formula(pq_or, pr_or)
-    test_derivable((p_and_qr_or, pq_or_pr), False, "Test 13a failed: p ∧ (q ∨ r) ⟹  (p ∧ q) ∨ (p ∧ r)")
-    test_derivable((p_or_qr_and, pq_and_pr), True, "Test 13b failed: p ∨ (q ∧ r) ⟹  (p ∨ q) ∧ (p ∨ r)")
-    # Test 14: Reverse distributivity
-    test_derivable((pq_or_pr, p_and_qr_or), True, "Test 14a failed: (p ∧ q) ∨ (p ∧ r) ⟹  p ∧ (q ∨ r)")
-    test_derivable((pq_and_pr, p_or_qr_and), False, "Test 14b failed: (p ∨ q) ∧ (p ∨ r) ⟹  p ∨ (q ∧ r)")
-
-
-    # Test 15: Associativity: (p ∧ q) ∧ r ⟹  p ∧ (q ∧ r)
-    pq_and_r = and_formula(pq, r)
-    qr_and = and_formula(q, r)
-    p_and_qr = and_formula(p, qr_and)
-    test_derivable((pq_and_r, p_and_qr), True, "Test 15 failed: (p ∧ q) ∧ r ⟹  p ∧ (q ∧ r)")
-    # Test 16: Disjunction associativity: (p ∨ q) ∨ r ⟹  p ∨ (q ∨ r)
-    pq_or_r = or_formula(pq_or, r)
-    p_or_qr = or_formula(p, qr_or)
-    test_derivable((pq_or_r, p_or_qr), True, "Test 16 failed: (p ∨ q) ∨ r ⟹  p ∨ (q ∨ r)")
-    # Test 17: Absorption: p ∧ (p ∨ q) ⟹  p
-    p_and_p_or_q = and_formula(p, pq_or)
-    test_derivable((p_and_p_or_q, p), True, "Test 17 failed: p ∧ (p ∨ q) ⟹  p")
-    # Test 18: Reverse absorption: p ⟹  p ∧ (p ∨ q)
-    test_derivable((p, p_and_p_or_q), True, "Test 18 failed: p ⟹  p ∧ (p ∨ q)")
-    # Test 19: More complex formula
-    rs_and = and_formula(r, s)
-    pq_or_rs = or_formula(pq, rs_and)
-    pr_or = or_formula(p, r)
-    qs_or = or_formula(q, s)
-    pr_and_qs = and_formula(pr_or, qs_or)
-    test_derivable((pq_or_rs, pr_and_qs), True, "Test 19 failed: (p ∧ q) ∨ (r ∧ s) ⟹  (p ∨ r) ∧ (q ∨ s)")
-    # Test 20: The reverse (should be False)
-    test_derivable((pr_and_qs, pq_or_rs), False, "Test 20 failed: (p ∨ r) ∧ (q ∨ s) ⟹  (p ∧ q) ∨ (r ∧ s) should be False")
-    assertion_print("Passed!")
-    assertion_print("\n=== NEGATION TESTS ===")
-    # Test 21: Negated atom identity
-    not_p = not_formula(p)
-    test_derivable((not_p, not_p), True, "Test 21 failed: ~p ⟹  ~p")
-    
-    # Test 22: Double negation elimination (~~L)
-    not_not_p = not_formula(not_p)
-    test_derivable((not_not_p, p), True, "Test 22 failed: ~~p ⟹  p")
-    
-    # Test 23: Double negation introduction (~~R)
-    test_derivable((p, not_not_p), True, "Test 23 failed: p ⟹  ~~p")
-    
-    # Test 24: De Morgan's law: ~(p ∧ q) ⟹  ~p ∨ ~q
-    not_pq_and = not_formula(pq)
-    not_p_or_not_q = or_formula(not_p, not_formula(q))
-    test_derivable((not_pq_and, not_p_or_not_q), True, "Test 24 failed: ~(p ∧ q) ⟹  ~p ∨ ~q")
-    
-    # Test 25: De Morgan's law: ~p ∨ ~q ⟹  ~(p ∧ q)
-    test_derivable((not_p_or_not_q, not_pq_and), True, "Test 25 failed: ~p ∨ ~q ⟹  ~(p ∧ q)")
-    
-    # Test 26: De Morgan's law: ~(p ∨ q) ⟹  ~p ∧ ~q
-    not_pq_or = not_formula(pq_or)
-    not_p_and_not_q = and_formula(not_p, not_formula(q))
-    test_derivable((not_pq_or, not_p_and_not_q), True, "Test 26 failed: ~(p ∨ q) ⟹  ~p ∧ ~q")
-    
-    # Test 27: De Morgan's law: ~p ∧ ~q ⟹  ~(p ∨ q)
-    test_derivable((not_p_and_not_q, not_pq_or), True, "Test 27 failed: ~p ∧ ~q ⟹  ~(p ∨ q)")
-    
-    # Test 28: Triple negation: ~~~p ⟹  ~p
-    not_not_not_p = not_formula(not_not_p)
-    test_derivable((not_not_not_p, not_p), True, "Test 28 failed: ~~~p ⟹  ~p")
-    
-    # Test 29: Contradiction (should fail)
-    test_derivable((p, not_p), False, "Test 29 failed: p ⟹  ~p should be False")
-    
-    # Test 30: Contradiction reverse (should fail)
-    test_derivable((not_p, p), False, "Test 30 failed: ~p ⟹  p should be False")
-    assertion_print("Passed!")
-    
-    assertion_print("\n=== COMPLEX NEGATION TESTS ===")
-    # Test 31: ~(p ∧ ~q) ⟹  ~p ∨ q
-    not_q = not_formula(q)
-    p_and_not_q = and_formula(p, not_q)
-    not_p_and_not_q = not_formula(p_and_not_q)
-    not_p_or_q = or_formula(not_p, q)
-    test_derivable((not_p_and_not_q, not_p_or_q), True, "Test 31 failed: ~(p ∧ ~q) ⟹  ~p ∨ q")
-    
-    # Test 32: ~(~p ∨ q) ⟹  p ∧ ~q
-    not_p_or_q_formula = or_formula(not_p, q)
-    not_not_p_or_q = not_formula(not_p_or_q_formula)
-    p_and_not_q_result = and_formula(p, not_q)
-    test_derivable((not_not_p_or_q, p_and_not_q_result), True, "Test 32 failed: ~(~p ∨ q) ⟹  p ∧ ~q")
-    
-    # Test 33: Double De Morgan: ~(~p ∧ ~q) ⟹  p ∨ q
-    not_not_p_and_not_q = not_formula(not_p_and_not_q)
-    test_derivable((not_not_p_and_not_q, pq_or), True, "Test 33 failed: ~(~p ∧ ~q) ⟹  p ∨ q")
-    
-    # Test 34: Nested negation: ~(p ∨ ~(q ∧ r)) ⟹  ~p ∧ (q ∧ r)
-    qr_and = and_formula(q, r)
-    not_qr_and = not_formula(qr_and)
-    p_or_not_qr = or_formula(p, not_qr_and)
-    not_p_or_not_qr = not_formula(p_or_not_qr)
-    not_p_and_qr = and_formula(not_p, qr_and)
-    test_derivable((not_p_or_not_qr, not_p_and_qr), True, "Test 34 failed: ~(p ∨ ~(q ∧ r)) ⟹  ~p ∧ (q ∧ r)")
-    
-    # Test 35: Complex mixed formula: (p ∧ ~q) ∨ (~p ∧ q) ⟹  ~(p ∧ q) ∨ ~(~p ∧ ~q)
-    p_and_not_q = and_formula(p, not_q)
-    not_p_and_q = and_formula(not_p, q)
-    mixed_or = or_formula(p_and_not_q, not_p_and_q)
-    not_pq_and = not_formula(pq)
-    not_not_p_and_not_q = not_formula(not_p_and_not_q)
-    result_or = or_formula(not_pq_and, not_not_p_and_not_q)
-    test_derivable((mixed_or, result_or), True, "Test 35 failed: (p ∧ ~q) ∨ (~p ∧ q) ⟹  ~(p ∧ q) ∨ ~(~p ∧ ~q)")
-    assertion_print("Passed!")
-    
-    if PRODUCE_PROOFS:
-        with open("proofs_pql.tex", "w") as f:
-            template_data = ""
-            with open("a.template", "r") as g:
-                template_data = g.read()
-                final = template_data + proof_data + "\n\\end{document}"
-                f.write(final)
-
-        subprocess.run(["pdflatex", "proofs_pql.tex"], check=True)
-        subprocess.run(["rm", "proofs_pql.aux", "proofs_pql.log", "proofs_pql.out"], check=True)
-
-
 

@@ -1,13 +1,6 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, List, Optional
 from enum import Enum
-import subprocess
-
-PRODUCE_PROOFS = True
-PERFORM_ASSERTION = True
-PRINT_MARKERS = True
-
-proof_data = ""
 
 class ConnectiveType(Enum):
     AND = "∧"
@@ -89,41 +82,36 @@ def get_coimp_parts(formula: Formula) -> Tuple[Formula, Formula]:
     assert is_coimp(formula)
     return formula.left, formula.right
 
-def assertion_print(msg: str):
-    if PERFORM_ASSERTION and PRINT_MARKERS:
-        print(msg)
-
-def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: str):
+def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: str, assertion: bool, proofs: bool):
     global proof_data
     
-    if PERFORM_ASSERTION:
+    if assertion:
         result = is_derivable(sequent)
         assert result == expected, f"{test_str}"
     
-    if expected and PRODUCE_PROOFS:
+    if expected and proofs:
 
         status_text = "Sequente derivável"
         formula_left = lift_formula_to_latex_string(sequent[0])
         formula_right = lift_formula_to_latex_string(sequent[1])
 
-        proof_data += ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
+        return ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
                       f"\\text{{{status_text}}}\n" +
                       "\\hfill\n\\break\n"*2+ 
             lift_object_to_bussproofs(derive_proof(sequent)) + "\\hfill\n\\break\n"*2)
         
+    formula_left = lift_formula_to_latex_string(sequent[0])
+    formula_right = lift_formula_to_latex_string(sequent[1])
+    if expected:
+        # This case happens when expected is True but PRODUCE_PROOFS is False
+        status_text = "Derivable (proof generation disabled)"
     else:
-        formula_left = lift_formula_to_latex_string(sequent[0])
-        formula_right = lift_formula_to_latex_string(sequent[1])
-        if expected:
-            # This case happens when expected is True but PRODUCE_PROOFS is False
-            status_text = "Derivable (proof generation disabled)"
-        else:
-            # This case happens when expected is False
-            status_text = "Sequente não derivável"
-        
-        proof_data += ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " +f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
-                      f"\\text{{{status_text}}}\n" +
-                      "\\hfill\n\\break\n"*2)
+        # This case happens when expected is False
+        status_text = "Sequente não derivável"
+    
+    return ("\\paragraph{" + test_str[:test_str.index(":")+1].replace("failed", "") + " " +f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}"  + "\\leavevmode"+"\n\n"+
+                    f"\\text{{{status_text}}}\n" +
+                    "\\hfill\n\\break\n"*2)
                       
 
 def derive_proof(sequent: Tuple[Formula, Formula], cache: Optional[dict] = None) -> Optional[ProofNode]:
