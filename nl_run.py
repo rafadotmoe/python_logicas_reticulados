@@ -39,6 +39,8 @@ reserved = {
     'top': 'TOP',
 }
 
+context = []
+
 def error_out(msg):
     print("Error:")
     print(msg)
@@ -192,6 +194,12 @@ while True:
         continue
 
     if s.lower() == 'q' or s.lower() == 'quit':
+        ext = input("Nome do ficheiro (sem .tex): ")
+
+        if not ext:
+            ext = "proof"+time.strftime("%Y%m%d_%H%M%S")
+
+        nl.to_latex_weak(context, ext)
         break
 
     if not parser.is_sequent_symbol(s):
@@ -202,9 +210,10 @@ while True:
     proof = nl.derive_proof(seq)
 
     if proof is not None:
-        print("Proof found!")
-        output_latex(proof, seq)
+        print("Sequente derivável!")
     else:
-        print("No proof found!")
-        continue
+        print("Sequente não derivável!")
+
+    context.append((proof, seq))
+
 

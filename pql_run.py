@@ -1,8 +1,6 @@
 import ply.lex as lex
 import ply.yacc as yacc
-import os
 import time
-import subprocess
 
 import pql
 
@@ -29,6 +27,8 @@ reserved = {
     'or': 'OR',
     'not': 'NOT',
 }
+
+context = []
 
 def error_out(msg):
     print("Error:")
@@ -113,55 +113,6 @@ class Parser:
 
 parser = Parser()
 
-def output_latex(proof, seq):
-    if not proof:
-        error_out("No proof to output")
-
-    ext = input("Enter the name of the LaTeX document (without .tex): ")
-
-    if not ext:
-        ext = "proof"+time.strftime("%Y%m%d_%H%M%S")
-
-    output_dir = "proofs_output"
-    if os.path.exists(output_dir):
-        for file in os.listdir(output_dir):
-            if file.startswith(ext):
-                os.remove(os.path.join(output_dir, file))
-    else:
-        os.makedirs(output_dir)
-
-    template_dest = os.path.join(output_dir, "../a.template")
-
-    proof_data = pql.lift_object_to_bussproofs(proof)
-    formula_left = pql.lift_formula_to_latex_string(seq[0])
-    formula_right = pql.lift_formula_to_latex_string(seq[1])
-    proof_data = "\\paragraph{" + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}" + "\\leavevmode"+"\n\n" \
-    + "\\hfill\n\\break\n"*2 + proof_data + "\\hfill\n\\break\n"*2
-
-    tex_file = os.path.join(output_dir, f"{ext}.tex")
-    with open(tex_file, 'w') as f:
-        template_data = ""
-        with open(template_dest, 'r') as g:
-            template_data = g.read()
-            final = template_data + proof_data + "\n\\end{document}"
-            f.write(final)
-
-    original_cwd = os.getcwd()
-    try:
-        os.chdir(output_dir)
-        subprocess.run(["pdflatex", ext + ".tex"], check=True)
-        
-        aux_files = [ext + ".aux", ext + ".log", ext + ".out"]
-        for aux_file in aux_files:
-            if os.path.exists(aux_file):
-                os.remove(aux_file)
-                
-    finally:
-        os.chdir(original_cwd)
-    
-    print(f"PDF generated successfully in {output_dir}/" + ext + ".pdf")
-
-
 while True:
     try:
         s = input('pql> ')
@@ -171,6 +122,12 @@ while True:
         continue
 
     if s.lower() == 'q' or s.lower() == 'quit':
+        ext = input("Nome do ficheiro (sem .tex): ")
+
+        if not ext:
+            ext = "proof"+time.strftime("%Y%m%d_%H%M%S")
+
+        pql.to_latex_weak(context, ext)
         break
 
     if not parser.is_sequent_symbol(s):
@@ -181,10 +138,10 @@ while True:
     proof = pql.derive_proof(seq)
 
     if proof is not None:
-        print("Proof found!")
-        output_latex(proof, seq)
+        print("Sequente derivável!")
     else:
-        print("No proof found!")
-        continue
+        print("Sequente não derivável!")
+
+    context.append((proof, seq))
 
 

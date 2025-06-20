@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, List, Optional
 from enum import Enum
+import os
+import subprocess
 
 class ConnectiveType(Enum):
     AND = "∧"
@@ -86,6 +88,69 @@ def get_neg_conjuncts(formula: Formula) -> Tuple[Formula, Formula]:
 def get_neg_disjuncts(formula: Formula) -> Tuple[Formula, Formula]:
     assert is_neg_disjunction(formula)
     return not_formula(get_disjuncts(formula.operand)[0]), not_formula(get_disjuncts(formula.operand)[1])
+
+def to_latex_weak(proofs: List[Tuple[ProofNode, tuple[Formula, Formula]]], ext: str):
+    if not ext:
+        return False
+
+    output_dir = "proofs_output"
+    if os.path.exists(output_dir):
+        for file in os.listdir(output_dir):
+            if file.startswith(ext):
+                os.remove(os.path.join(output_dir, file))
+    else:
+        os.makedirs(output_dir)
+
+    template_dest = os.path.join(output_dir, "../a.template")
+    tex_file = os.path.join(output_dir, f"{ext}.tex")
+
+    with open(tex_file, 'w') as f:
+        final = ""
+        for proof, seq in proofs:
+            formula_left = lift_formula_to_latex_string(seq[0])
+            formula_right = lift_formula_to_latex_string(seq[1])
+
+            if proof is None:
+                status_text = "Sequente não derivável"
+                init_data = "\\paragraph{" + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}" + "\\leavevmode"+"\n\n" \
+                + f"\\text{{{status_text}}}\n" \
+                + "\\hfill\n\\break\n"*2
+
+                proof_data = ""
+            else:
+                status_text = "Sequente derivável"
+                init_data = "\\paragraph{" + f"${formula_left} \\Rightarrow  {formula_right}$ \\\\\n""}" + "\\leavevmode"+"\n\n" \
+                + f"\\text{{{status_text}}}\n" \
+                + "\\hfill\n\\break\n"*2
+
+                proof_data = lift_object_to_bussproofs(proof)
+                proof_data += "\\hfill\n\\break\n"*2
+
+
+            proof_data = init_data + proof_data
+
+            final += proof_data
+
+
+        with open(template_dest, 'r') as g:
+            template_data = g.read()
+            f.write(template_data + final + "\n\\end{document}")
+
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(output_dir)
+        subprocess.run(["pdflatex", ext + ".tex"], check=True)
+        
+        aux_files = [ext + ".aux", ext + ".log", ext + ".out"]
+        for aux_file in aux_files:
+            if os.path.exists(aux_file):
+                os.remove(aux_file)
+                
+    finally:
+        os.chdir(original_cwd)
+    
+    print(f"PDF generated successfully in {output_dir}/" + ext + ".pdf")
 
 def test_derivable(sequent: tuple[Formula, Formula], expected: bool, test_str: str, assertion: bool, proofs: bool):
     global proof_data
