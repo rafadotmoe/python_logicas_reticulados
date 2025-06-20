@@ -297,6 +297,19 @@ def nl_tests():
     proof_data += nl.test_derivable((p_coimp_bot_coimp_bot, p), False, "Test 30: ((p ⊂ ⊥) ⊂ ⊥) ⟹  p (should fail - no double negation)", PERFORM_ASSERTION, PRODUCE_PROOFS)
     assertion_print("Passed!")
 
+    # Test 31: (p coimp (r or s)) => ((p or q) coimp (r and s))
+    r = nl.atom('r')
+    s = nl.atom('s')
+    p = nl.atom('p')
+
+    r_or_s = nl.or_formula(r, s)
+    p_coimp_r_or_s = nl.coimp_formula(p, r_or_s)
+    p_or_q = nl.or_formula(p, q)
+    r_and_s = nl.and_formula(r, s)
+    p_or_q_coimp_r_and_s = nl.coimp_formula(p_or_q, r_and_s)
+
+    proof_data += nl.test_derivable((p_coimp_r_or_s, p_or_q_coimp_r_and_s), True, "Test 31: (p ⊂ (r ∨ s)) ⟹  ((p ∨ q) ⊂ (r ∧ s)) should be True", PERFORM_ASSERTION, PRODUCE_PROOFS)
+
     generate_latex_output("nl")
 
     proof_data = ""
